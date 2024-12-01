@@ -253,6 +253,7 @@ class transferfunction_analyzer(thesdk):
 if __name__=="__main__":
     import argparse
     import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
     from  transferfunction_analyzer import *
     import pdb
     import numpy as np
@@ -261,6 +262,7 @@ if __name__=="__main__":
     parser.add_argument('--show', dest='show', type=bool, nargs='?', const = True,
             default=False,help='Show figures on screen')
     args=parser.parse_args()
+
     RC=1
     tfa=transferfunction_analyzer()
     tfa.poles=[RC]
@@ -270,10 +272,11 @@ if __name__=="__main__":
     # Impulse response
     plt.figure()
     h=plt.subplot();
-    plt.ylim(0,1.6);
-    plt.xlim((0,tfa.time[-1]));
     plt.plot(tfa.time,tfa.imp(),label='RC=%s' %(RC));
-
+    plt.ylim(0,1.1*np.max(tfa.imp()));
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=0.1))
+    h.xaxis.set_major_locator(ticker.MultipleLocator(base=RC))
+    plt.xlim((0,tfa.time[-1]));
     plt.suptitle('Impulse response');
     plt.ylabel('h(t)');
     plt.xlabel(r'Relative time ( $\tau$ =RC)');
@@ -287,9 +290,11 @@ if __name__=="__main__":
     #Step response
     plt.figure()
     h=plt.subplot();
-    plt.ylim(0,1.6);
-    plt.xlim((0,tfa.time[-1]));
     plt.plot(tfa.time,tfa.step(),label='RC=%s' %(RC));
+    plt.ylim(0,1.1*np.max(tfa.step()));
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=0.1))
+    plt.xlim((0,tfa.time[-1]));
+    h.xaxis.set_major_locator(ticker.MultipleLocator(base=RC))
     plt.suptitle('Step response');
     plt.ylabel('h(t)');
     plt.xlabel(r'Relative time ( $\tau$ =RC)');
@@ -303,11 +308,11 @@ if __name__=="__main__":
     #Amplitude response
     plt.figure()
     h=plt.subplot();
-    plt.ylim(0,1.6);
+    plt.semilogx(tfa.omega,tfa.tfabs(),label='RC=%s' %(RC));
+    plt.ylim(0,1.1*np.max(tfa.tfabs()));
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=0.1))
     # How to make xlim work with logscale plots
     #plt.xlim((0,tfa.omega[-1]));
-    #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
-    plt.semilogx(tfa.omega,tfa.tfabs(),label='RC=%s' %(RC));
     plt.suptitle('Amplitude response');
     plt.ylabel(r'$\left|H(f)\right|$');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
@@ -321,7 +326,8 @@ if __name__=="__main__":
     #Amplitude response in decibels
     plt.figure()
     h=plt.subplot();
-    plt.ylim(-40,1.6);
+    plt.ylim(-40,3);
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=10))
     # How to make xlim work with logscale plots
     #plt.xlim((0,tfa.omega[-1]));
     #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
@@ -339,12 +345,11 @@ if __name__=="__main__":
     #Phase response in deg
     plt.figure()
     h=plt.subplot();
-    plt.ylim(-100,0);
+    plt.semilogx(tfa.omega,tfa.tfphase(),label='RC=%s' %(RC));
+    plt.ylim(np.min(tfa.tfphase())-10,np.max(tfa.tfphase())+10);
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=10))
     # How to make xlim work with logscale plots
     #plt.xlim((0,tfa.omega[-1]));
-    #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
-    plt.semilogx(tfa.omega,tfa.tfphase(),label='RC=%s' %(RC));
-
     plt.suptitle('Phase response');
     plt.ylabel(r'$\angle$ H(f) [dB]');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
