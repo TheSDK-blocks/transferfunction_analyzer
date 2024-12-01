@@ -3,7 +3,7 @@
 transferfunction_analyzer
 =========================
 
-Transferfucntion analyzer is an entity providing methods for analyzing 
+Transferfucntion analyzer is an entity providing methods for analyzing
 transfer functions in time and frequency domain
 
 Initially written by Marko Kosunen, marko.kosunen@aalto.fi, 2024.
@@ -24,7 +24,7 @@ from scipy import signal as sig
 import sympy as sp
 sp.init_printing()
 
-import plot_format 
+import plot_format
 plot_format.set_style('ieeetran')
 import pdb
 
@@ -62,26 +62,69 @@ class transferfunction_analyzer(thesdk):
 
     @property
     def time(self):
+        """Time vector used for producing time domain responses
+
+        Default: If pole exists, 100 samples from 0 to 10/p0
+        """
         if not hasattr(self,'_time'):
-            self._time=np.linspace(0,1)
+            if len(self.poles) > 0:
+                self._time=np.linspace(0,10/self.poles[0],num=100).rehape(-1,1)
+            else:
+                self._time=np.linspace(0,1,num=100).reshape(-1,1)
         return self._time
 
+    @time.setter
+    def time(self,val):
+        self._time=np.array(val)
 
-    #Transer function as
+    @property
+    def freq(self):
+        """Frequency vector used for producing frequency responses
+
+        Default: If pole exists, 1000 samples from 0.01p0 to 1000p0 (five decades) in log-scale.
+        """
+        if not hasattr(self,'_freq'):
+            if len(self.poles) > 0:
+                self._freq=np.logspace(0.01*self.poles[0],100*self.poles[0],num=100000)
+            else:
+                self._freq=np.logspace(0,1,num=100000)
+        return self._freq
+    @freq.setter
+    def freq(self,val):
+        self._freq=np.array(val).reshape(-1,1)
+
+    @property
+    def omega(self):
+        """Angular frequency vector used for producing frequency responses
+
+        Default: If pole exists, 1000 samples from 0.01p0 to 1000p0 (five decades) in log-scale.
+        """
+        return 2.0*np.pi*self._freq
+
+    @property
+    def subsdict(self):
+        """Substitution dictionary for evaluating numerical values of system responses
+        """
+        self._subsdict={self._g:self.gain}
+        for index in range(len(self.poles)):
+           currpolesym=sp.symbols('p%s' %(index))
+           self._subsdict.update({currpolesym:self.poles[index]})
+        for index in range(len(self.zeros)):
+           currzerosym=sp.symbols('p%s' %(index))
+           self._subsdict.update({currzerosym:self.zeros[index]})
+        return self._subsdict
+
     @property
     def tfsym(self):
         nominator=self._g
-        self.subsdict={self._g:self.gain}
         denominator=1
-        
+
         for index in range(len(self.poles)):
            currpolesym=sp.symbols('p%s' %(index))
            if self.poles[index]==0:
                denominator*=self._s
            else:
                denominator*=(self._s/currpolesym+1)
-           self.subsdict.update({currpolesym:self.poles[index]})
-           
 
         for index in range(len(self.zeros)):
            currzerosym=sp.symbols('p%s' %(index))
@@ -89,7 +132,7 @@ class transferfunction_analyzer(thesdk):
                nominator*=self._s
            else:
                nominator*=(seflf._s/currzerosym+1)
-           self.subsdict.update({currzerosym:self.zeros[index]})
+
         self._tfsym=nominator/denominator
         return self._tfsym
 
@@ -113,22 +156,84 @@ class transferfunction_analyzer(thesdk):
     def steplatex(self):
         return sp.latex(self.stepsym)
 
-    def imp(self,t):
-       imp=sp.lambdify(self._t,self.stepsym.subs(self.subsdict))
-       return np.array(imp(t))
+    def imp(self,**kwargs):
+        """Impulse response
 
-    @property
-    def impres(self):
-       self._impulse=self.ht[1].reshape(1,-1)
-       return self._stepres
+        Parameters
+        ----------
+            t : [ Real ]
 
-       self.step=self.hts[1].reshape(1,-1)
-    
+        Returns
+        -------
+            Impulse response vector.
+        """
+        t=kwargs.get('t',self.time)
+        imp=sp.lambdify(self._t,self.impsym.subs(self.subsdict))
+        return np.array(imp(t)).reshape(-1,1)
 
-    def __init__(self,*arg): 
-        self.print_log(type='I', msg='Inititalizing %s' %(__name__)) 
+    def step(self,**kwargs):
+        """Step response
+
+        Parameters
+        ----------
+            t : [ Real ]
+
+        Returns
+        -------
+            Step response vector.
+        """
+        t=kwargs.get('t',self.time)
+        imp=sp.lambdify(self._t,self.stepsym.subs(self.subsdict))
+        return np.array(imp(t)).reshape(-1,1)
+
+    def tf(self,**kwargs):
+        """Step response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Step response vector.
+        """
+        f=kwargs.get('f',self.freq)
+        tf=sp.lambdify(self._s,self.tfsym.subs(self.subsdict))
+        return np.array(tf(self.omega*1j)).reshape(-1,1)
+
+    def tfabs(self,**kwargs):
+        """Ampliitude response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Amplitude response vector.
+        """
+        f=kwargs.get('f',self.freq)
+        return np.abs(self.tf(f=f)).reshape(-1,1)
+
+    def tfphase(self,**kwargs):
+        """Phase response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Phase response vector in Deg.
+        """
+        f=kwargs.get('f',self.freq)
+        return np.angle(self.tf(f=f),deg=True).reshape(-1,1)
+
+    def __init__(self,*arg):
+        self.print_log(type='I', msg='Inititalizing %s' %(__name__))
         self.model='py';
 
+        # These symbols we always have when handling system equations in Laplace domain
         self._t=sp.symbols('t', positive=True)
         self._s=sp.symbols('s')
         self._g=sp.symbols('g')
@@ -149,12 +254,108 @@ if __name__=="__main__":
     import argparse
     import matplotlib.pyplot as plt
     from  transferfunction_analyzer import *
-    from  transferfunction_analyzer.controller import controller as transferfunction_analyzer_controller
     import pdb
-    import math
+    import numpy as np
     # Implement argument parser
     parser = argparse.ArgumentParser(description='Parse selectors')
-    parser.add_argument('--show', dest='show', type=bool, nargs='?', const = True, 
+    parser.add_argument('--show', dest='show', type=bool, nargs='?', const = True,
             default=False,help='Show figures on screen')
     args=parser.parse_args()
+    RC=1
+    tfa=transferfunction_analyzer()
+    tfa.poles=[RC]
+    tfa.time=np.linspace(0,10*RC,num=100)
+    tfa.freq=np.logspace(-3,3,base=10,num=100)/RC
+
+    # Impulse response
+    plt.figure()
+    h=plt.subplot();
+    plt.ylim(0,1.6);
+    plt.xlim((0,tfa.time[-1]));
+    plt.plot(tfa.time,tfa.imp(),label='RC=%s' %(RC));
+
+    plt.suptitle('Impulse response');
+    plt.ylabel('h(t)');
+    plt.xlabel(r'Relative time ( $\tau$ =RC)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_pole_impulse_response.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    #Step response
+    plt.figure()
+    h=plt.subplot();
+    plt.ylim(0,1.6);
+    plt.xlim((0,tfa.time[-1]));
+    plt.plot(tfa.time,tfa.step(),label='RC=%s' %(RC));
+    plt.suptitle('Step response');
+    plt.ylabel('h(t)');
+    plt.xlabel(r'Relative time ( $\tau$ =RC)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_pole_step_response.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    #Amplitude response
+    plt.figure()
+    h=plt.subplot();
+    plt.ylim(0,1.6);
+    # How to make xlim work with logscale plots
+    #plt.xlim((0,tfa.omega[-1]));
+    #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
+    plt.semilogx(tfa.omega,tfa.tfabs(),label='RC=%s' %(RC));
+    plt.suptitle('Amplitude response');
+    plt.ylabel(r'$\left|H(f)\right|$');
+    plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_pole_amplitude_response.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    #Amplitude response in decibels
+    plt.figure()
+    h=plt.subplot();
+    plt.ylim(-40,1.6);
+    # How to make xlim work with logscale plots
+    #plt.xlim((0,tfa.omega[-1]));
+    #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
+    plt.semilogx(tfa.omega,10*np.log10(tfa.tfabs()),label='RC=%s' %(RC));
+    plt.suptitle('Amplitude response');
+    plt.ylabel(r'$\left| H(f) \right|$ [dB]');
+    plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_pole_amplitude_response_ind_db.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    #Phase response in deg
+    plt.figure()
+    h=plt.subplot();
+    plt.ylim(-100,0);
+    # How to make xlim work with logscale plots
+    #plt.xlim((0,tfa.omega[-1]));
+    #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
+    plt.semilogx(tfa.omega,tfa.tfphase(),label='RC=%s' %(RC));
+
+    plt.suptitle('Phase response');
+    plt.ylabel(r'$\angle$ H(f) [dB]');
+    plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_phase_response.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    if args.show:
+        input()
+
 
