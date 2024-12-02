@@ -110,7 +110,7 @@ class transferfunction_analyzer(thesdk):
            currpolesym=sp.symbols('p%s' %(index))
            self._subsdict.update({currpolesym:self.poles[index]})
         for index in range(len(self.zeros)):
-           currzerosym=sp.symbols('p%s' %(index))
+           currzerosym=sp.symbols('z%s' %(index))
            self._subsdict.update({currzerosym:self.zeros[index]})
         return self._subsdict
 
@@ -127,11 +127,11 @@ class transferfunction_analyzer(thesdk):
                denominator*=(self._s/currpolesym+1)
 
         for index in range(len(self.zeros)):
-           currzerosym=sp.symbols('p%s' %(index))
+           currzerosym=sp.symbols('z%s' %(index))
            if self.zeros[index]==0:
                nominator*=self._s
            else:
-               nominator*=(seflf._s/currzerosym+1)
+               nominator*=(self._s/currzerosym+1)
 
         self._tfsym=nominator/denominator
         return self._tfsym
@@ -216,7 +216,7 @@ class transferfunction_analyzer(thesdk):
         return np.abs(self.tf(f=f)).reshape(-1,1)
 
     def tfphase(self,**kwargs):
-        """Phase response
+        """Bode estimate of pole effects over the given frequency range.
 
         Parameters
         ----------
@@ -228,6 +228,116 @@ class transferfunction_analyzer(thesdk):
         """
         f=kwargs.get('f',self.freq)
         return np.angle(self.tf(f=f),deg=True).reshape(-1,1)
+
+    def polesbodeamp(self,**kwargs):
+        """Phase response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Bode estimate of poles efect to frequency response
+        """
+        f=kwargs.get('f',self.freq)
+        self._polesbodeamp=np.zeros((len(self.freq),len(self.poles)))
+        for col in range(len(self.poles)):
+            pole=self.poles[col]
+            self._polesbodeamp[(self.freq >= pole)[:,0],col]=-10*np.log10(self.freq[self.freq >= pole]/np.abs(pole))
+        self._polesbodeamp=10**(self._polesbodeamp/10)
+        return self._polesbodeamp
+
+    def polesbodephase(self,**kwargs):
+        """Phase response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Bode estimate of poles efect to frequency response
+        """
+        f=kwargs.get('f',self.freq)
+
+        self._polesbodephase=np.zeros((len(self.freq),len(self.poles)))
+        for col in range(len(self.poles)):
+            pole=self.poles[col]
+            self._polesbodephase[np.logical_and(self.freq >= 0.1*pole, self.freq <= 10*pole )[:,0],col]=-1*np.sign(pole)*45*np.log10(self.freq[np.logical_and(self.freq >= 0.1*pole,self.freq <= 10*pole)]/(0.1*pole))
+            self._polesbodephase[(self.freq > 10*pole )[:,0],col]=-1*np.sign(pole)*90
+        return self._polesbodephase
+
+    def zerosbodeamp(self,**kwargs):
+        """Phase response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Bode estimate of zeros efect to frequency response
+        """
+        f=kwargs.get('f',self.freq)
+        self._zerosbodeamp=np.zeros((len(self.freq),len(self.zeros)))
+        for col in range(len(self.zeros)):
+            zero=self.zeros[col]
+            self._zerosbodeamp[(self.freq >= zero)[:,0],col]=10*np.log10(self.freq[self.freq >= zero]/np.abs(zero))
+        self._zerosbodeamp=10**(self._zerosbodeamp/10)
+        return self._zerosbodeamp
+
+    def zerosbodephase(self,**kwargs):
+        """Phase response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Bode estimate of zeros efect to frequency response
+        """
+        f=kwargs.get('f',self.freq)
+
+        self._zerosbodephase=np.zeros((len(self.freq),len(self.zeros)))
+        for col in range(len(self.zeros)):
+            zero=self.zeros[col]
+            self._zerosbodephase[np.logical_and(self.freq >= 0.1*zero, self.freq <= 10*zero )[:,0],col]=1*np.sign(zero)*45*np.log10(self.freq[np.logical_and(self.freq >= 0.1*zero,self.freq <= 10*zero)]/(0.1*zero))
+            self._zerosbodephase[(self.freq > 10*zero )[:,0],col]=1*np.sign(zero)*90
+        return self._zerosbodephase
+
+    def bodeamp(self,**kwargs):
+        """Bode amplitude response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Bode estimate of amplitude response
+        """
+        f=kwargs.get('f',self.freq)
+        self._bodeamp=self.gain*10**(np.sum(10*np.log10(self.polesbodeamp(f=f)),axis=1)/10+np.sum(10*np.log10(self.zerosbodeamp(f=f)),axis=1)/10).reshape(-1,1)
+        return self._bodeamp
+
+    def bodephase(self,**kwargs):
+        """Phase response
+
+        Parameters
+        ----------
+            f : [ Real ]
+
+        Returns
+        -------
+            Bode estimate of phase response.
+        """
+        f=kwargs.get('f',self.freq)
+
+        f=kwargs.get('f',self.freq)
+        self._bodephase=(np.sum(self.polesbodephase(f=f),axis=1)+np.sum(self.zerosbodephase(f=f),axis=1)).reshape(-1,1)
+        return self._bodephase
 
     def __init__(self,*arg):
         self.print_log(type='I', msg='Inititalizing %s' %(__name__))
@@ -244,6 +354,8 @@ class transferfunction_analyzer(thesdk):
             self.parent =parent;
 
         self.init()
+
+
 
     def init(self):
         pass #Currently nohing to add
@@ -266,6 +378,7 @@ if __name__=="__main__":
     RC=1
     tfa=transferfunction_analyzer()
     tfa.poles=[RC]
+    tfa.zeros=[10*RC]
     tfa.time=np.linspace(0,10*RC,num=100)
     tfa.freq=np.logspace(-3,3,base=10,num=100)/RC
 
@@ -347,6 +460,43 @@ if __name__=="__main__":
     h=plt.subplot();
     plt.semilogx(tfa.omega,tfa.tfphase(),label='RC=%s' %(RC));
     plt.ylim(np.min(tfa.tfphase())-10,np.max(tfa.tfphase())+10);
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=10))
+    # How to make xlim work with logscale plots
+    #plt.xlim((0,tfa.omega[-1]));
+    plt.suptitle('Phase response');
+    plt.ylabel(r'$\angle$ H(f) [dB]');
+    plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_phase_response.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    #Bode plot of amplitude response in decibels
+    plt.figure()
+    h=plt.subplot();
+    plt.ylim(-40,3);
+    h.yaxis.set_major_locator(ticker.MultipleLocator(base=10))
+    # How to make xlim work with logscale plots
+    #plt.xlim((0,tfa.omega[-1]));
+    #plt.plot(tfa.freq,tfa.tfabs(),label='RC=%s' %(RC));
+    plt.semilogx(tfa.omega,10*np.log10(tfa.bodeamp()),label='RC=%s' %(RC));
+    plt.suptitle('Amplitude response');
+    plt.ylabel(r'$\left| H(f) \right|$ [dB]');
+    plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
+    for axis in ['top','bottom','left','right']:
+      h.spines[axis].set_linewidth(2)
+    lgd=plt.legend(loc='upper right');
+    plt.grid(True);
+    plt.savefig('./Single_pole_amplitude_response_ind_db.eps', format='eps', dpi=300);
+    plt.show(block=False);
+
+    #Bode plot of phase respnse
+    plt.figure()
+    h=plt.subplot();
+    plt.semilogx(tfa.omega,tfa.bodephase(),label='RC=%s' %(RC));
+    plt.ylim(np.min(tfa.bodephase())-10,np.max(tfa.bodephase())+10);
     h.yaxis.set_major_locator(ticker.MultipleLocator(base=10))
     # How to make xlim work with logscale plots
     #plt.xlim((0,tfa.omega[-1]));
