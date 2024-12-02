@@ -241,10 +241,11 @@ class transferfunction_analyzer(thesdk):
             Bode estimate of poles efect to frequency response
         """
         f=kwargs.get('f',self.freq)
-        self._polesbodeamp=np.zeros((len(self.freq),len(self.poles)))
+        omega=2*np.pi*f
+        self._polesbodeamp=np.zeros((len(omega),len(self.poles)))
         for col in range(len(self.poles)):
             pole=self.poles[col]
-            self._polesbodeamp[(self.freq >= pole)[:,0],col]=-10*np.log10(self.freq[self.freq >= pole]/np.abs(pole))
+            self._polesbodeamp[(omega >= pole)[:,0],col]=-10*np.log10(omega[omega >= pole]/np.abs(pole))
         self._polesbodeamp=10**(self._polesbodeamp/10)
         return self._polesbodeamp
 
@@ -260,12 +261,12 @@ class transferfunction_analyzer(thesdk):
             Bode estimate of poles efect to frequency response
         """
         f=kwargs.get('f',self.freq)
-
-        self._polesbodephase=np.zeros((len(self.freq),len(self.poles)))
+        omega=2*np.pi*f
+        self._polesbodephase=np.zeros((len(omega),len(self.poles)))
         for col in range(len(self.poles)):
             pole=self.poles[col]
-            self._polesbodephase[np.logical_and(self.freq >= 0.1*pole, self.freq <= 10*pole )[:,0],col]=-1*np.sign(pole)*45*np.log10(self.freq[np.logical_and(self.freq >= 0.1*pole,self.freq <= 10*pole)]/(0.1*pole))
-            self._polesbodephase[(self.freq > 10*pole )[:,0],col]=-1*np.sign(pole)*90
+            self._polesbodephase[np.logical_and(omega >= 0.1*pole, omega <= 10*pole )[:,0],col]=-1*np.sign(pole)*45*np.log10(omega[np.logical_and(omega >= 0.1*pole,omega <= 10*pole)]/(0.1*pole))
+            self._polesbodephase[(omega > 10*pole )[:,0],col]=-1*np.sign(pole)*90
         return self._polesbodephase
 
     def zerosbodeamp(self,**kwargs):
@@ -280,10 +281,11 @@ class transferfunction_analyzer(thesdk):
             Bode estimate of zeros efect to frequency response
         """
         f=kwargs.get('f',self.freq)
-        self._zerosbodeamp=np.zeros((len(self.freq),len(self.zeros)))
+        omega=2*np.pi*f
+        self._zerosbodeamp=np.zeros((len(omega),len(self.zeros)))
         for col in range(len(self.zeros)):
             zero=self.zeros[col]
-            self._zerosbodeamp[(self.freq >= zero)[:,0],col]=10*np.log10(self.freq[self.freq >= zero]/np.abs(zero))
+            self._zerosbodeamp[(omega >= zero)[:,0],col]=10*np.log10(omega[omega >= zero]/np.abs(zero))
         self._zerosbodeamp=10**(self._zerosbodeamp/10)
         return self._zerosbodeamp
 
@@ -299,12 +301,12 @@ class transferfunction_analyzer(thesdk):
             Bode estimate of zeros efect to frequency response
         """
         f=kwargs.get('f',self.freq)
-
-        self._zerosbodephase=np.zeros((len(self.freq),len(self.zeros)))
+        omega=2*np.pi*f
+        self._zerosbodephase=np.zeros((len(omega),len(self.zeros)))
         for col in range(len(self.zeros)):
             zero=self.zeros[col]
-            self._zerosbodephase[np.logical_and(self.freq >= 0.1*zero, self.freq <= 10*zero )[:,0],col]=1*np.sign(zero)*45*np.log10(self.freq[np.logical_and(self.freq >= 0.1*zero,self.freq <= 10*zero)]/(0.1*zero))
-            self._zerosbodephase[(self.freq > 10*zero )[:,0],col]=1*np.sign(zero)*90
+            self._zerosbodephase[np.logical_and(omega >= 0.1*zero, omega <= 10*zero )[:,0],col]=1*np.sign(zero)*45*np.log10(omega[np.logical_and(omega >= 0.1*zero,omega <= 10*zero)]/(0.1*zero))
+            self._zerosbodephase[(omega > 10*zero )[:,0],col]=1*np.sign(zero)*90
         return self._zerosbodephase
 
     def bodeamp(self,**kwargs):
@@ -333,8 +335,6 @@ class transferfunction_analyzer(thesdk):
         -------
             Bode estimate of phase response.
         """
-        f=kwargs.get('f',self.freq)
-
         f=kwargs.get('f',self.freq)
         self._bodephase=(np.sum(self.polesbodephase(f=f),axis=1)+np.sum(self.zerosbodephase(f=f),axis=1)).reshape(-1,1)
         return self._bodephase
@@ -393,8 +393,6 @@ if __name__=="__main__":
     plt.suptitle('Impulse response');
     plt.ylabel('h(t)');
     plt.xlabel(r'Relative time ( $\tau$ =RC)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_pole_impulse_response.eps', format='eps', dpi=300);
@@ -411,8 +409,6 @@ if __name__=="__main__":
     plt.suptitle('Step response');
     plt.ylabel('h(t)');
     plt.xlabel(r'Relative time ( $\tau$ =RC)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_pole_step_response.eps', format='eps', dpi=300);
@@ -429,8 +425,6 @@ if __name__=="__main__":
     plt.suptitle('Amplitude response');
     plt.ylabel(r'$\left|H(f)\right|$');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_pole_amplitude_response.eps', format='eps', dpi=300);
@@ -448,8 +442,6 @@ if __name__=="__main__":
     plt.suptitle('Amplitude response');
     plt.ylabel(r'$\left| H(f) \right|$ [dB]');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_pole_amplitude_response_ind_db.eps', format='eps', dpi=300);
@@ -466,8 +458,6 @@ if __name__=="__main__":
     plt.suptitle('Phase response');
     plt.ylabel(r'$\angle$ H(f) [dB]');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_phase_response.eps', format='eps', dpi=300);
@@ -485,8 +475,6 @@ if __name__=="__main__":
     plt.suptitle('Amplitude response');
     plt.ylabel(r'$\left| H(f) \right|$ [dB]');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_pole_amplitude_response_ind_db.eps', format='eps', dpi=300);
@@ -503,8 +491,6 @@ if __name__=="__main__":
     plt.suptitle('Phase response');
     plt.ylabel(r'$\angle$ H(f) [dB]');
     plt.xlabel(r'Relative frequency ( $p_0 =\frac{1}{RC}$)');
-    for axis in ['top','bottom','left','right']:
-      h.spines[axis].set_linewidth(2)
     lgd=plt.legend(loc='upper right');
     plt.grid(True);
     plt.savefig('./Single_phase_response.eps', format='eps', dpi=300);
