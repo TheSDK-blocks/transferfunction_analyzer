@@ -245,8 +245,8 @@ class transferfunction_analyzer(thesdk):
         self._polesbodeamp=np.zeros((len(omega),len(self.poles)))
         for col in range(len(self.poles)):
             pole=self.poles[col]
-            self._polesbodeamp[(omega >= pole)[:,0],col]=-10*np.log10(omega[omega >= pole]/np.abs(pole))
-        self._polesbodeamp=10**(self._polesbodeamp/10)
+            self._polesbodeamp[(omega >= pole)[:,0],col]=-20*np.log10(omega[omega >= pole]/np.abs(pole))
+        self._polesbodeamp=10**(self._polesbodeamp/20)
         return self._polesbodeamp
 
     def polesbodephase(self,**kwargs):
